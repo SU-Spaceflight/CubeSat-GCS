@@ -40,3 +40,6 @@ build/
 
 ### Env ###
 .env
+
+### Node ###
+/src/frontend/node_modules/
