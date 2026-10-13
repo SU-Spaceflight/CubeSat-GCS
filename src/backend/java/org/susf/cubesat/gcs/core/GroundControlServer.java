@@ -7,6 +7,10 @@ import java.util.Objects;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
+import org.susf.cubesat.gcs.net.api.SpringServer;
 import org.susf.cubesat.gcs.net.uplink.protocol.codec.PacketCodec;
 import org.susf.cubesat.gcs.net.uplink.protocol.packet.telemetry.HealthPacket;
 import org.susf.cubesat.gcs.net.uplink.server.UplinkConnection;
@@ -18,8 +22,9 @@ public class GroundControlServer {
     private static final Logger LOGGER = LogManager.getLogger(GroundControlServer.class);
 
     private final PacketCodec codec;
-    private final UplinkServer server;
+    private final UplinkServer uplinkServer;
     private UplinkConnection connection;
+    private ConfigurableApplicationContext springServer;
 
     public GroundControlServer() {
         // Register all packet classes with codec, so it knows how to deserialise them
@@ -33,7 +38,7 @@ public class GroundControlServer {
         try {
             // Try to resolve the address, and initialise uplink server
             InetAddress address = InetAddress.getByName(host);
-            server = new UplinkServer(address, port, codec);
+            uplinkServer = new UplinkServer(address, port, codec);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -41,8 +46,14 @@ public class GroundControlServer {
 
     public void run() {
 
+        // Start spring server as java bean
+        springServer = new SpringApplicationBuilder(SpringServer.class)
+                .initializers((GenericApplicationContext ctx) ->
+                        ctx.getBeanFactory().registerSingleton("GCS Frontend", this))
+                .run();
+
         // Wait until a client connects to the uplink server, then get the connection
-        connection = server.getOrAwaitConnection();
+        connection = uplinkServer.getOrAwaitConnection();
 
         // Register a test listener to handle recived packets
         connection.onPacketReceived(packet -> {
@@ -53,6 +64,7 @@ public class GroundControlServer {
     }
 
     public void stop() {
-        server.close();
+        if (springServer != null) springServer.close();
+        uplinkServer.close();
     }
 }
