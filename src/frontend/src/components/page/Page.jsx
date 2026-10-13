@@ -1,6 +1,7 @@
 import ScrollArea from "../layout/scrollArea/ScrollArea.jsx";
 import {Spacer} from "../layout/spacer/Spacer.jsx";
 import "./Page.css"
+import {Clock} from "../clock/Clock.jsx";
 
 export default function Page(props) {
     const {title, actions} = props;
@@ -11,6 +12,7 @@ export default function Page(props) {
                 <Spacer />
                 {actions}
                 <Spacer />
+                <Clock epoch="2026-03-01T12:00:00Z" />
             </div>
             <ScrollArea scrollX={false} scrollY={true}>
                 <div className="page-content">

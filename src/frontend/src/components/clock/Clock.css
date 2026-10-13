@@ -1,0 +1,17 @@
+.clock {
+    height: 100%;
+    padding: 10px 12px;
+    border-left: 3px solid black;
+    background: #1c1c1c;
+    text-align: center;
+    display: flex;
+    align-items: center;
+}
+
+.clock-value {
+    font-family: ui-monospace, monospace;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: aliceblue;
+}
