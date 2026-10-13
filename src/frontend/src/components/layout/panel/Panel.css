@@ -1,0 +1,19 @@
+.panel {
+    border: 2px solid #494949;
+}
+.panel-head {
+    display: flex;
+    align-items: center;
+    height: 32px;
+    border-bottom: 1px solid #494949;
+    font-weight: bold;
+    background: #8c8c8c;
+}
+
+.panelTitle {
+    padding: 8px;
+}
+
+.panel-body {
+    padding: 12px;
+}
