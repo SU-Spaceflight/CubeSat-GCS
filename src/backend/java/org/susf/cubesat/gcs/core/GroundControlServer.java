@@ -1,16 +1,21 @@
 package org.susf.cubesat.gcs.core;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.Objects;
 
 
+import org.apache.commons.mail.EmailException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 import org.susf.cubesat.gcs.net.api.SpringServer;
+import org.susf.cubesat.gcs.net.email.EmailClient;
 import org.susf.cubesat.gcs.net.uplink.protocol.codec.PacketCodec;
 import org.susf.cubesat.gcs.net.uplink.protocol.packet.telemetry.HealthPacket;
 import org.susf.cubesat.gcs.net.uplink.server.UplinkConnection;
@@ -25,6 +30,7 @@ public class GroundControlServer {
     private final UplinkServer uplinkServer;
     private UplinkConnection connection;
     private ConfigurableApplicationContext springServer;
+    private EmailClient emailClient;
 
     public GroundControlServer() {
         // Register all packet classes with codec, so it knows how to deserialise them
@@ -42,6 +48,12 @@ public class GroundControlServer {
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
+
+        // Initialise email client
+        emailClient = new EmailClient(
+                Env.get("MAIL_USERNAME"),
+                Env.get("MAIL_PASSWORD"),
+                Env.get("MAIL_HOST"));
     }
 
     public void run() {
@@ -57,8 +69,10 @@ public class GroundControlServer {
 
         // Register a test listener to handle recived packets
         connection.onPacketReceived(packet -> {
+            LOGGER.info("Recived: " + packet);
+
             if (Objects.requireNonNull(packet.data()) instanceof HealthPacket health) {
-                LOGGER.info("Recived: " + health);
+                testTelemetryEmail(health);
             }
         });
     }
@@ -66,5 +80,30 @@ public class GroundControlServer {
     public void stop() {
         if (springServer != null) springServer.close();
         uplinkServer.close();
+    }
+
+    public void testTelemetryEmail(HealthPacket packet) {
+        try {
+            String recipient = System.getenv("MAIL_RECIPIENT");
+            String from = System.getenv("MAIL_USERNAME");
+
+            String html = """
+                <html>
+                    <h4>CubeSat health telemetry</h4>
+                    <p>See attatched file</p>
+                </html>
+            """;
+
+            File report = packet.buildReportAttachment();
+            emailClient.sendHtml(
+                    html,
+                    recipient,
+                    "Health report telemetry",
+                    from,
+                    List.of(report)
+            );
+        } catch (IOException | EmailException e) {
+            LOGGER.error("Failed to create or send health telemetry email: ", e);
+        }
     }
 }

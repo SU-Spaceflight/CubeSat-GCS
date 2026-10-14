@@ -33,7 +33,7 @@ public class UplinkServer {
             // Open a new socket on the given port
             socket = new ServerSocket(port);
 
-            // Start a separate thread to handle connections to the socket concurrently
+            // Start a separate thread to handle conections to the socket concurrently
             acceptThread = new Thread(this::acceptConnections, "UPLINK_CONNECTION_HANDLER");
             acceptThread.start();
 
@@ -91,7 +91,7 @@ public class UplinkServer {
 
     public void close() {
         try {
-            // If not the accept thread, interrupt the accept thread to break out of its while loop, which will then cause it to enter this method as well
+            // If not the accept thread, interupt the accept thread to break out of its while loop, which will then cause it to enter this method as well
             // Block on the accept thread until it has finished, then return
             if (Thread.currentThread() != acceptThread && acceptThread.isAlive()) {
                 acceptThread.interrupt();
