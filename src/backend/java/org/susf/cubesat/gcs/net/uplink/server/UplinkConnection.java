@@ -57,7 +57,10 @@ public class UplinkConnection {
             } catch (EOFException e) {
                 break; // Client closed connection
             } catch (IOException e) {
+                System.out.print("\n");
                 LOGGER.error("Error in client connection: " + client.getRemoteSocketAddress(), e);
+                System.out.print("\n");
+
                 break;
             }
         }
@@ -68,6 +71,7 @@ public class UplinkConnection {
         LOGGER.info("-----------------------------------------------");
 
         terminate();
+        LOGGER.info("Consumer terminated: " + client.getRemoteSocketAddress());
     }
 
     public PacketEnvelope awaitPacket() throws IOException {
@@ -125,6 +129,7 @@ public class UplinkConnection {
 
         } catch (IOException | InterruptedException e) {
             LOGGER.error("Error closing connection:", e);
+            System.out.print("\n");
 
             // Ensure that the server is informed that the connection has been closed, even if an error was encountered
             server.onClientDisconnect(this);

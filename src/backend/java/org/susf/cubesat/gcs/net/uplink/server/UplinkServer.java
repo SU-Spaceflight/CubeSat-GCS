@@ -61,11 +61,14 @@ public class UplinkServer {
                 currentConnection.complete(connection);
 
             } catch (Exception e) {
+                System.out.print("\n");
                 LOGGER.error("Error accepting connection:", e);
+                System.out.print("\n");
             }
         }
 
         close();
+        LOGGER.info("Server closed");
     }
 
     public void onClientDisconnect(UplinkConnection connection) {
@@ -79,7 +82,9 @@ public class UplinkServer {
         try {
             return currentConnection.get();
         } catch (Exception e) {
+            System.out.print("\n");
             LOGGER.error("Error waiting for connection: ", e);
+            System.out.print("\n");
             return null;
         }
     }
@@ -101,11 +106,11 @@ public class UplinkServer {
                 }
 
                 if (socket != null && !socket.isClosed()) socket.close();
-
-                LOGGER.info("Server closed");
             }
         } catch (Exception e) {
+            System.out.print("\n");
             LOGGER.error("Error closing server: ", e);
+            System.out.print("\n");
         }
     }
 

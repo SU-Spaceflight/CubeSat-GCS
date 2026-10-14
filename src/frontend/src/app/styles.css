@@ -2,3 +2,13 @@ html, body, #root {
   font-family: Arial, Calibri, serif;
   background: #9c9c9c;
 }
+
+.video-feed-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.video-feed {
+  display: block;
+  max-width: 100%;
+}
