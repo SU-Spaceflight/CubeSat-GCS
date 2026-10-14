@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 
 
 import org.apache.commons.mail.EmailException;
@@ -17,6 +18,7 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.susf.cubesat.gcs.net.api.SpringServer;
 import org.susf.cubesat.gcs.net.email.EmailClient;
 import org.susf.cubesat.gcs.net.uplink.protocol.codec.PacketCodec;
+import org.susf.cubesat.gcs.net.uplink.protocol.packet.telemetry.CpuTempPacket;
 import org.susf.cubesat.gcs.net.uplink.protocol.packet.telemetry.HealthPacket;
 import org.susf.cubesat.gcs.net.uplink.server.UplinkConnection;
 import org.susf.cubesat.gcs.net.uplink.server.UplinkServer;
@@ -35,19 +37,14 @@ public class GroundControlServer {
     public GroundControlServer() {
         // Register all packet classes with codec, so it knows how to deserialise them
         codec = new PacketCodec()
-                .register(HealthPacket.class);
+                .register(HealthPacket.class)
+                .register(CpuTempPacket.class);
 
         // Fetch env variables from file
-        String host = Env.get("UPLINK_HOST", "localhost");
         int port = Integer.valueOf(Env.get("UPLINK_PORT", "12000"));
 
-        try {
-            // Try to resolve the address, and initialise uplink server
-            InetAddress address = InetAddress.getByName(host);
-            uplinkServer = new UplinkServer(address, port, codec);
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+        uplinkServer = new UplinkServer(port, codec);
+        uplinkServer.start();
 
         // Initialise email client
         emailClient = new EmailClient(
@@ -56,7 +53,7 @@ public class GroundControlServer {
                 Env.get("MAIL_HOST"));
     }
 
-    public void run() {
+    public void run() throws IOException, ExecutionException, InterruptedException {
 
         // Start spring server as java bean
         springServer = new SpringApplicationBuilder(SpringServer.class)
@@ -69,10 +66,10 @@ public class GroundControlServer {
 
         // Register a test listener to handle recived packets
         connection.onPacketReceived(packet -> {
-            LOGGER.info("Recived: " + packet);
+            LOGGER.info("Recived packet: " + packet);
 
-            if (Objects.requireNonNull(packet.data()) instanceof HealthPacket health) {
-                testTelemetryEmail(health);
+            if (Objects.requireNonNull(packet.payload()) instanceof CpuTempPacket tempPacket) {
+                System.out.println(tempPacket);
             }
         });
     }

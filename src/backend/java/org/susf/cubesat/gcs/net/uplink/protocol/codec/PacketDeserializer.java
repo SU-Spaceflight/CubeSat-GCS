@@ -31,6 +31,7 @@ public class PacketDeserializer {
         // Create a new Gson context specifically for this packet type, and register a new deserialiser with it
         gson = new GsonBuilder()
                 .registerTypeAdapter(Packet.class, new DataDeserializer(packetType))
+                .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
                 .create();
     }
 

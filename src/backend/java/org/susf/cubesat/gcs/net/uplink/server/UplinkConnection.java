@@ -6,37 +6,32 @@ import org.susf.cubesat.gcs.net.uplink.callback.PacketListener;
 import org.susf.cubesat.gcs.net.uplink.protocol.Packet;
 import org.susf.cubesat.gcs.net.uplink.protocol.PacketEnvelope;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.net.Socket;
+import java.util.concurrent.LinkedBlockingQueue;
+
+import org.java_websocket.WebSocket;
 
 public class UplinkConnection {
 
     private static final Logger LOGGER = LogManager.getLogger(UplinkConnection.class);
 
-    private final Socket client;
-    private final DataInputStream inputStream;
-    private final DataOutputStream outputStream;
+    private final WebSocket client;
+    private final LinkedBlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
 
     private final UplinkServer server;
 
     private volatile PacketListener listener = envelop -> LOGGER.error("NO LISTENER SET => PacketEnvelope received: " + envelop);
     private final Thread listeningThread;
 
-    public UplinkConnection(Socket client, UplinkServer server) throws IOException {
+    public UplinkConnection(WebSocket client, UplinkServer server) {
         this.client = client;
         this.server = server;
 
         LOGGER.info("Initialising client connection for address: " + client.getRemoteSocketAddress());
 
-        // Get the sockets input and output streams
-        inputStream = new DataInputStream(client.getInputStream());
-        outputStream = new DataOutputStream(client.getOutputStream());
-
         if (!isConnected())
-            throw new IOException("Cannot create connection for: " + client.getRemoteSocketAddress() + ": socket not connected");
+            throw new RuntimeException("Cannot create connection for: " + client.getRemoteSocketAddress() + ": socket not connected");
 
         System.out.print("\n");
 
@@ -45,7 +40,12 @@ public class UplinkConnection {
         listeningThread.start();
     }
 
+    public void onMessage(String message) {
+        messageQueue.add(message);
+    }
+
     private void consumePackets() {
+
         // Loop on the consumer thread until interrupted (signal to stop)
         while (isConnected() && !Thread.interrupted()) {
             try {
@@ -56,7 +56,7 @@ public class UplinkConnection {
 
             } catch (EOFException e) {
                 break; // Client closed connection
-            } catch (IOException e) {
+            } catch (IOException | IllegalArgumentException | InterruptedException e) {
                 System.out.print("\n");
                 LOGGER.error("Error in client connection: " + client.getRemoteSocketAddress(), e);
                 System.out.print("\n");
@@ -65,22 +65,19 @@ public class UplinkConnection {
             }
         }
 
-        System.out.print("\n");
-        LOGGER.info("-----------------------------------------------");
-        LOGGER.info("Client disconnected: " + client.getRemoteSocketAddress());
-        LOGGER.info("-----------------------------------------------");
+        // Close the connection
+        if (!client.isClosed()) client.close();
 
-        terminate();
         LOGGER.info("Consumer terminated: " + client.getRemoteSocketAddress());
     }
 
-    public PacketEnvelope awaitPacket() throws IOException {
+    public PacketEnvelope awaitPacket() throws IOException, InterruptedException {
         if (!isConnected()) {
             throw new IOException("Cannot get envelop: Client not connected");
         }
 
-        // Read UTF in from the input stream (blocks until data is recived)
-        String in = inputStream.readUTF();
+        // Take the next message from the queue, blocking if empty
+        String in = messageQueue.take();
 
         // Get the codec, and use it to decode the input, deserialising it into an envelope object,
         // including its internal packet object
@@ -100,39 +97,31 @@ public class UplinkConnection {
 
         // Get the codec, and use it to encode the packet, serialising it into json, then wrighting it to the output stream
         String out = server.getCodec().encode(packet);
-        outputStream.writeUTF(out);
-        outputStream.flush();
+        client.send(out);
     }
 
-    public void terminate() {
+    public void close() {
         LOGGER.info("Terminating client connection for address: " + client.getRemoteSocketAddress());
-        try {
-            // If not the listening thread, interrupt the listening thread to break out of its while loop, which will then cause it to enter this method as well
-            // Block on the listening thread until it has finished, then return
-            if (listeningThread != Thread.currentThread() && listeningThread.isAlive()) {
+
+        // If not the listening thread, interrupt the listening thread to break out of its while loop
+        // Block on the listening thread until it has finished, then return
+        if (listeningThread != Thread.currentThread() && listeningThread.isAlive()) {
+            try {
                 listeningThread.interrupt();
                 listeningThread.join();
 
-            // When the accept thread enters this method it ensures the streams are closed, and then closes the client connection
-            // In the case where the current thread is not the listening thread, but the listening thread it not alive, the current thread will enter this
-            // else statement regardless, to ensure the connection is always closed
-            } else {
+            } catch ( InterruptedException e) {
+                LOGGER.error("Error closing connection:", e);
+                System.out.print("\n");
 
-                if (inputStream != null) inputStream.close();
-                if (outputStream != null) outputStream.close();
+                // Close the connection forcefully
                 if (!client.isClosed()) client.close();
-
-                // Inform the server that this connection has been closed, so it can be unregistered
-                // (We do this ONLY IF we have closed the connection on this thread, and have not just interupted the listening thread)
-                server.onClientDisconnect(this);
             }
 
-        } catch (IOException | InterruptedException e) {
-            LOGGER.error("Error closing connection:", e);
-            System.out.print("\n");
-
-            // Ensure that the server is informed that the connection has been closed, even if an error was encountered
-            server.onClientDisconnect(this);
+        // In the case where the current thread is not the listening thread, but for some reason the listening thread it not alive,
+        // close the connection from this thread instead
+        } else {
+            if (!client.isClosed()) client.close();
         }
     }
 
@@ -144,7 +133,7 @@ public class UplinkConnection {
         return client != null && !client.isClosed();
     }
 
-    public Socket getClient() {
+    public WebSocket getClient() {
         return client;
     }
 }

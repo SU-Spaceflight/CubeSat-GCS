@@ -35,7 +35,7 @@ public class HealthPacket extends Packet {
     }
 
     public File buildReportAttachment() throws IOException {
-        File file = new File(Env.get("TELEMETRY_REPORT_ATTACHMENT_NAME", "telemetry-report.txt"));
+        File file = new File(Env.get("TELEM_REPORT_NAME", "telemetry-report.txt"));
         try (FileWriter writer = new FileWriter(file, false)) {
             writer.write(this.toString() + "\n");
         }

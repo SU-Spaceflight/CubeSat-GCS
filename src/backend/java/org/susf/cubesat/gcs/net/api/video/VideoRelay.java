@@ -85,7 +85,7 @@ public class VideoRelay {
     }
 
     private void streamFrames(BufferedInputStream stream) throws IOException {
-        // Wrap buffer stream in data stream so we can use read methods
+        // Wrap buffer stream in payload stream so we can use read methods
         DataInputStream dataStream = new DataInputStream(stream);
 
         // Loop on the relay thread, publishing new frames whenever they arrive, until the thread is interrupted
@@ -97,7 +97,7 @@ public class VideoRelay {
             // Create a new buffer for the frame with the correct length
             byte[] frame = new byte[len];
 
-            // Copy the frame data into the new buffer and publish
+            // Copy the frame payload into the new buffer and publish
             dataStream.readFully(frame);
             publishFrame(frame);
             connected = true;
