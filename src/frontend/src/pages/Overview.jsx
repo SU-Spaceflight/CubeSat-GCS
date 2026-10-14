@@ -3,6 +3,7 @@ import {Panel} from "../components/layout/panel/Panel.jsx";
 import {Stack} from "../components/layout/stack/Stack.jsx";
 import {Grid} from "../components/layout/grid/Grid.jsx";
 import {TabbedPanel} from "../components/layout/tabbedPanel/TabbedPanel.jsx";
+import VideoFeed from "../components/video/VideoFeed.jsx";
 
 export default function Overview() {
   return (
@@ -26,15 +27,7 @@ export default function Overview() {
           }
         ]}/>
         <Panel title="test1">
-          <Grid cols={4}>
-            <p>hello</p>
-            <p>hello</p>
-            <p>hello</p>
-            <p>hello</p>
-            <p>hello</p>
-            <p>hello</p>
-            <p>hello</p>
-          </Grid>
+          <VideoFeed/>
         </Panel>
         <Panel title="test1">
           <Grid cols={4}>

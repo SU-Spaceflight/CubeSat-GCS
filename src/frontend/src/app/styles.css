@@ -72,14 +72,3 @@ html, body, #root {
   width: 100%;
   height: 100%;
 }
-}
-
-.video-feed-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.video-feed {
-  display: block;
-  max-width: 100%;
-}

@@ -1,0 +1,9 @@
+.video-feed-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.video-feed {
+    display: block;
+    max-width: 100%;
+}
