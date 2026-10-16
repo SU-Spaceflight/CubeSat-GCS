@@ -35,7 +35,7 @@ public class UplinkServer extends WebSocketServer {
             System.out.print("\n");
             LOGGER.info("===============================================");
             LOGGER.info(" Starting uplink server on:");
-            LOGGER.info(" - Local: http://" + getAddress() + ":" + getPort());
+            LOGGER.info(" - Local: http://localhost:" + getPort());
             LOGGER.info(" - Network: http://" + InetAddress.getLocalHost().getHostAddress() + ":" + getPort());
             LOGGER.info("===============================================\n");
         } catch (UnknownHostException e) {
@@ -46,8 +46,10 @@ public class UplinkServer extends WebSocketServer {
     }
 
     @Override
+    // Runs whenever a new connection to the server is opened
     public void onOpen(WebSocket socket, ClientHandshake handshake) {
         synchronized (lock) {
+            // We only want one client connection at a time, so redject any new connctions made if there is already an existing one
             if (connectionFuture.isDone()) {
                 LOGGER.error("Rejecting connection from " + socket.getRemoteSocketAddress() + ": only one connection permitted");
                 socket.close(1008, "Only one connection is permitted at a time");
@@ -59,15 +61,20 @@ public class UplinkServer extends WebSocketServer {
             LOGGER.info("Client connected: " + socket.getRemoteSocketAddress());
             LOGGER.info("-----------------------------------------------\n");
 
+            // Wrap the socket in an UplinkConnection, to handle packeting system
             UplinkConnection connection = new UplinkConnection(socket, this);
+
+            // Complete the connection future, and unblock any threads waiting on a connection
             connectionFuture.complete(connection);
         }
     }
 
     @Override
+    // Runs whenever a connected client sends a message
     public void onMessage(WebSocket socket, String message) {
         UplinkConnection connection = currentConnection();
 
+        // If the client socket is not the current connections socket, reject it as we should only ever have one connection
         if (connection == null || connection.getClient() != socket) {
             LOGGER.error("Secondary client at " + socket.getRemoteSocketAddress() + " attempted to send message: " + message + ". Only one connection is permitted at a time");
             socket.close(1008, "Only one connection is permitted at a time");
@@ -75,18 +82,26 @@ public class UplinkServer extends WebSocketServer {
         }
 
         try {
+
+            // Forward message to connection object to handle
             connection.onMessage(message);
+
         } catch (Exception e) {
-            LOGGER.error("Error whilst processing message: ", e);
+            System.out.print("\n");
+            LOGGER.error("Error whilst processing message for client " + socket.getRemoteSocketAddress() + ":", e);
+            System.out.print("\n");
         }
     }
 
 
     @Override
+    // Runs when a client encounters an error
     public void onError(WebSocket socket, Exception e) {
+        // WebSocketServer passes in null socket for fatal errors
         if (socket == null) {
             LOGGER.error("Fatal server error:", e);
 
+            // Set closed flag to true, and complete future with exception to notify all threads attempting to get a connection that the server has closed
             synchronized (lock) {
                 closed = true;
                 connectionFuture.completeExceptionally(e);
@@ -94,12 +109,13 @@ public class UplinkServer extends WebSocketServer {
             return;
         }
 
+        // Log the error and close the connection
         LOGGER.error("WebSocket error for client: " + socket.getRemoteSocketAddress(), e);
         socket.close(1011, "Internal error");
-
     }
 
     @Override
+    // Runs when a client disconnects
     public void onClose(WebSocket socket, int code, String reason, boolean remote) {
         synchronized (lock) {
             if (connectionFuture.isDone() && !connectionFuture.isCompletedExceptionally() && connectionFuture.join().getClient() == socket) {
@@ -111,8 +127,11 @@ public class UplinkServer extends WebSocketServer {
                 LOGGER.info("-----------------------------------------------\n");
 
                 if (!closed) {
+                    // Reset future object so any thread trying to get a connection is blocked until a connection is reestablished
                     connectionFuture = new CompletableFuture<>();
                 } else {
+                    // onClose still runs after onError when we disconnect the socket, so we need to ensure that if a fatal error was encountered,
+                    // we dont leave threads waiting on a new connection to be made, and instead tell them that the server has closed
                     CompletableFuture<UplinkConnection> failed = new CompletableFuture<>();
                     failed.completeExceptionally(new CancellationException("Server closed"));
                     connectionFuture = failed;
@@ -129,10 +148,13 @@ public class UplinkServer extends WebSocketServer {
         synchronized (lock) {
             future = connectionFuture;
         }
+
+        // Block until a connection is established, or the server closes
         return future.get();
     }
 
     private UplinkConnection currentConnection() {
+        // Get the current connection safely
         synchronized (lock) {
             return connectionFuture.isDone() && !connectionFuture.isCompletedExceptionally() ? connectionFuture.join() : null;
         }

@@ -78,7 +78,7 @@ public class PacketCodec {
             // Use the deserialiser to reconstruct the envelope and packet payload objects
             return deserializer.deserialize(json);
         } catch (JsonParseException | IllegalArgumentException e) {
-            LOGGER.error("Failed to parse json: " + e.getMessage(), e);
+            LOGGER.error("Failed to parse json: ", e);
             return null;
         }
     }
